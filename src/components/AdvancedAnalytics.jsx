@@ -108,7 +108,7 @@ export default function AdvancedAnalytics({ debts }) {
     }, {})
   ).map(([key, value]) => ({
     ...value,
-    efficiency: Math.round((value.recovered / value.assigned) * 100) || 0,
+    efficiency: value.assigned > 0 ? Math.round((value.recovered / value.assigned) * 100) : 0,
     fill: CHART_COLORS[Object.keys(agencyDistribution).indexOf(key)]
   }))
 
@@ -130,6 +130,8 @@ export default function AdvancedAnalytics({ debts }) {
     }
     return null
   }
+
+  const totalPortfolioValue = debts.reduce((s, d) => s + d.amount, 0);
 
   return (
     <div className="analytics-container">
@@ -351,14 +353,13 @@ export default function AdvancedAnalytics({ debts }) {
             </thead>
             <tbody>
               {ageAnalysis.map((row, idx) => {
-                const totalAmount = debts.reduce((s, d) => s + d.amount, 0)
                 return (
                   <tr key={idx}>
                     <td>{row.range}</td>
                     <td>{row.count}</td>
                     <td>${row.amount.toLocaleString()}</td>
                     <td>${row.count > 0 ? Math.round(row.amount / row.count).toLocaleString() : 0}</td>
-                    <td>{((row.amount / totalAmount) * 100).toFixed(1)}%</td>
+                    <td>{totalPortfolioValue > 0 ? ((row.amount / totalPortfolioValue) * 100).toFixed(1) : 0}%</td>
                   </tr>
                 )
               })}
@@ -434,21 +435,21 @@ export default function AdvancedAnalytics({ debts }) {
         <div className="kpi-grid">
           <div className="kpi-card">
             <div className="kpi-label">TOTAL PORTFOLIO VALUE</div>
-            <div className="kpi-value">${debts.reduce((s, d) => s + d.amount, 0).toLocaleString()}</div>
+            <div className="kpi-value">${totalPortfolioValue.toLocaleString()}</div>
             <div className="kpi-meta">Across {debts.length} active cases</div>
           </div>
           <div className="kpi-card">
             <div className="kpi-label">RECOVERY RATE (YTD)</div>
             <div className="kpi-value">
-              {((debts.filter(d => d.status === 'Paid').reduce((s, d) => s + d.amount, 0) / 
-                 debts.reduce((s, d) => s + d.amount, 0)) * 100).toFixed(1)}%
+              {totalPortfolioValue > 0 ? ((debts.filter(d => d.status === 'Paid').reduce((s, d) => s + d.amount, 0) / 
+                 totalPortfolioValue) * 100).toFixed(1) : 0}%
             </div>
             <div className="kpi-meta">Target: 85.0%</div>
           </div>
           <div className="kpi-card">
             <div className="kpi-label">AVERAGE DAYS TO RESOLVE</div>
             <div className="kpi-value">
-              {Math.round(debts.reduce((s, d) => s + d.daysOverdue, 0) / debts.length)} Days
+              {debts.length > 0 ? Math.round(debts.reduce((s, d) => s + d.daysOverdue, 0) / debts.length) : 0} Days
             </div>
             <div className="kpi-meta">Industry avg: 72 days</div>
           </div>
@@ -460,7 +461,7 @@ export default function AdvancedAnalytics({ debts }) {
           <div className="kpi-card">
             <div className="kpi-label">HIGH RISK CASES</div>
             <div className="kpi-value">{debts.filter(d => d.propensity < 40).length}</div>
-            <div className="kpi-meta">{((debts.filter(d => d.propensity < 40).length / debts.length) * 100).toFixed(1)}% of portfolio</div>
+            <div className="kpi-meta">{debts.length > 0 ? ((debts.filter(d => d.propensity < 40).length / debts.length) * 100).toFixed(1) : 0}% of portfolio</div>
           </div>
           <div className="kpi-card">
             <div className="kpi-label">CASES RESOLVED THIS MONTH</div>
