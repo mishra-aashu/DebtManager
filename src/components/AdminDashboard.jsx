@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import DebtUploader from './DebtUploader'
 import { calculatePropensity, assignAgency } from '../utils/mlEngine'
-import { FaHome, FaFileInvoiceDollar, FaTasks, FaFileUpload, FaSignOutAlt } from 'react-icons/fa'
+import { FaHome, FaFileInvoiceDollar, FaTasks, FaFileUpload, FaSignOutAlt, FaChartLine } from 'react-icons/fa'
+import AdvancedAnalytics from './AdvancedAnalytics'
 
 const OfficialHeader = () => (
   <div className="official-header">
@@ -44,15 +45,7 @@ const Footer = () => (
 );
 
 export default function AdminDashboard({ debts, updateDebts, onLogout }) {
-  const [view, setView] = useState('Dashboard')
-
-  // Calculate stats
-  const totalDebt = debts.reduce((sum, d) => sum + d.amount, 0)
-  const recoveredDebt = debts
-    .filter(d => d.status === 'Paid')
-    .reduce((sum, d) => sum + d.amount, 0)
-  const pendingDebt = totalDebt - recoveredDebt
-  const recoveryRate = totalDebt > 0 ? ((recoveredDebt / totalDebt) * 100).toFixed(1) : 0
+  const [view, setView] = useState('Analytics')
 
   const handleReassign = () => {
     const reassigned = debts.map(debt => {
@@ -82,8 +75,8 @@ export default function AdminDashboard({ debts, updateDebts, onLogout }) {
           <h1>FedEx Receivables Dashboard</h1>
         </div>
         <div className="header-actions">
-          <button onClick={() => setView('Dashboard')} className={view === 'Dashboard' ? 'active' : ''}>
-            <FaHome /> Dashboard
+          <button onClick={() => setView('Analytics')} className={view === 'Analytics' ? 'active' : ''}>
+            <FaChartLine /> Analytics
           </button>
           <button onClick={() => setView('Submit Documentation')} className={view === 'Submit Documentation' ? 'active' : ''}>
             <FaFileUpload /> Submit Documentation
@@ -98,38 +91,8 @@ export default function AdminDashboard({ debts, updateDebts, onLogout }) {
       <Breadcrumbs view={view} />
 
       <main className="dashboard-content">
-        {view === 'Dashboard' && (
-          <div>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <h3>Total Outstanding Receivables</h3>
-                <p className="stat-value">${totalDebt.toLocaleString()}</p>
-              </div>
-              <div className="stat-card">
-                <h3>Fiscal Year To Date Recovered</h3>
-                <p className="stat-value">${recoveredDebt.toLocaleString()}</p>
-              </div>
-              <div className="stat-card">
-                <h3>Active Collection Cases</h3>
-                <p className="stat-value">{debts.filter(d => d.status === 'Pending').length}</p>
-              </div>
-              <div className="stat-card">
-                <h3>Recovery Rate (%)</h3>
-                <p className="stat-value">{recoveryRate}%</p>
-              </div>
-            </div>
-
-            <div className="action-section">
-              <button onClick={handleReassign} className="btn-ai">
-                Execute Risk Assessment & Re-Allocation
-              </button>
-            </div>
-
-            <div className="agency-performance">
-              <h2>Contracted Collection Service Provider Performance</h2>
-              {/* Agency performance table would go here */}
-            </div>
-          </div>
+        {view === 'Analytics' && (
+          <AdvancedAnalytics debts={debts} />
         )}
 
         {view === 'Submit Documentation' && (
