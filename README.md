@@ -157,6 +157,17 @@ If Score < 40   → Shark Recovery (Expert Negotiators)
 
 ---
 
+Role	                    Username            	Password
+FedEx Administrator	      admin	               fedex123
+Shark Agency            	shark	               shark123
+Quick Collections       	quick               	quick123
+Digital Bot	              digital	           digital123
+
+
+
+
+
+
 ## 🛠️ Technical Architecture
 
 ### **Technology Stack**
@@ -732,6 +743,11 @@ http://localhost:3000
 # Support Email
 dcs-support@fedex.gov
 ```
+
+
+
+
+
 
 ---
 
