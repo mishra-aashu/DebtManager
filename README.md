@@ -249,6 +249,8 @@ Digital Bot	              digital	           digital123
 ```bash
 Node.js >= 18.0.0
 npm >= 9.0.0
+Python >= 3.8.0
+pip >= 21.0.0
 Modern browser (Chrome, Firefox, Edge, Safari)
 ```
 
@@ -259,14 +261,18 @@ Modern browser (Chrome, Firefox, Edge, Safari)
 git clone https://github.com/mishra-aashu/DebtManager.git
 cd debt-management-system
 
-# 2. Install dependencies
+# 2. Install frontend dependencies
 npm install
 
-# 3. Start development server
+# 3. Install backend dependencies
+pip install -r requirements.txt
+
+# 4. Start development servers (frontend + backend)
 npm run dev
 
-# 4. Open browser
-# Navigate to: http://localhost:3000
+# 5. Open browser
+# Frontend: http://localhost:3000/DebtManager/
+# Backend API: http://localhost:5000/api
 ```
 
 ### **Production Build**
@@ -287,10 +293,17 @@ npm run deploy
 Create `.env` file in root directory:
 
 ```env
-VITE_API_URL=https://api.fedex.gov/dcs
-VITE_ENV=production
+# API Configuration
+VITE_API_URL=http://localhost:5000/api
+
+# Environment Settings
+VITE_ENV=development
 VITE_VERSION=3.2.0
-VITE_ENABLE_ANALYTICS=true
+VITE_ENABLE_ANALYTICS=false
+
+# Supabase Configuration (for production)
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_ANON_KEY=your_supabase_anon_key_here
 ```
 
 ---

@@ -10,13 +10,16 @@ import os
 
 app = Flask(__name__)
 
-# CORS configuration - add production URLs when deploying
-cors_origins = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    # Add your GitHub Pages URL here, e.g., "https://yourusername.github.io"
-    # Add your backend hosting URL if needed
-]
+# CORS configuration
+if 'CORS_ORIGINS' in os.environ:
+    # Production: Use comma-separated list from environment variable
+    cors_origins = os.environ['CORS_ORIGINS'].split(',')
+else:
+    # Development: Use hardcoded localhost values
+    cors_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173"
+    ]
 
 CORS(app, resources={
     r"/api/*": {
@@ -323,14 +326,3 @@ def update_case_status(case_id):
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-if __name__ == '__main__':
-    print("="*60)
-    print("🚀 FedEx Debt Collection ML API Server")
-    print("="*60)
-    print(f"📊 Model Version: {ml_engine.model_version}")
-    print(f"🗄️  Database: Supabase Connected")
-    print(f"🔐 Auth: JWT with bcrypt password hashing")
-    print(f"🌐 Server: http://localhost:5000")
-    print("="*60)
-    app.run(debug=True, port=5000)
