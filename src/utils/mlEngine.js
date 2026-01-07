@@ -31,8 +31,7 @@ export function assignAgency(propensityScore) {
 
 export function processCSVData(csvText, startId) {
   const lines = csvText.trim().split('\n')
-  const headers = lines[0].split(',').map(h => h.trim())
-  
+
   return lines.slice(1).map((line, index) => {
     const values = line.split(',').map(v => v.trim())
     const debt = {
