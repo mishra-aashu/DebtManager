@@ -1,193 +1,142 @@
-import { useState } from 'react'
-import { apiClient } from '../utils/apiClient'
+import { useState } from 'react';
+import { apiClient } from '../utils/apiClient';
+import './DebtUploader.css';
 
-export default function DebtUploader({ updateDebts, existingDebts }) {
-  const [file, setFile] = useState(null)
-  const [preview, setPreview] = useState([])
-  const [uploading, setUploading] = useState(false)
-  const [mlResults, setMlResults] = useState(null)
+export default function DebtUploader() {
+  const [file, setFile] = useState(null);
+  const [sqlPreview, setSqlPreview] = useState("");
+  const [tableName, setTableName] = useState("");
+  const [status, setStatus] = useState("idle"); // 'idle', 'schema_generated', 'table_created', 'embedding', 'processing', 'done'
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("Step 1: Upload a CSV file to begin.");
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0]
-    setFile(selectedFile)
-    setMlResults(null)
+  const onFileChange = async (e) => {
+    const selectedFile = e.target.files[0];
+    if (!selectedFile) return;
     
-    if (selectedFile) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const text = event.target.result
-        const rows = text.split('\n').map(row => row.split(','))
-        setPreview(rows.slice(0, 6))
-      }
-      reader.readAsText(selectedFile)
+    setFile(selectedFile);
+    setStatus("loading_schema");
+    setError("");
+    setMessage("Generating SQL schema from CSV...");
+
+    try {
+      const res = await apiClient.generateSchema(selectedFile);
+      setSqlPreview(res.sql_code);
+      setTableName(res.table_name);
+      setStatus("schema_generated");
+      setMessage(`Step 2: Review the generated SQL for table "${res.table_name}" and execute it.`);
+    } catch (err) {
+      setError(err.message);
+      setStatus("idle");
     }
-  }
+  };
 
-  const handleUpload = async () => {
-    if (!file) return
+  const handleCreateSchema = async () => {
+    setStatus("creating_table");
+    setError("");
+    setMessage("Executing SQL to create the table in Supabase...");
 
-    setUploading(true)
+    try {
+      await apiClient.executeSql(sqlPreview);
+      setStatus("table_created");
+      setMessage(`Step 3: Table "${tableName}" created. You can now embed the data.`);
+    } catch (err) {
+      setError(err.message);
+      setStatus("schema_generated"); // Revert to previous step on error
+    }
+  };
+
+  const handleEmbedding = async () => {
+    setStatus("embedding");
+    setError("");
+    setMessage(`Embedding data from ${file.name} into "${tableName}"...`);
     
     try {
-      console.log('🚀 Uploading to Python ML Backend...')
-      
-      // Call Python API
-      const result = await apiClient.uploadCSV(file)
-      
-      console.log('✅ ML Processing Complete:', result)
-      
-      setMlResults(result)
-      
-      // Update local state with new data
-      const newDebts = result.predictions.map((pred, idx) => ({
-        id: existingDebts.length + idx + 1,
-        ...pred,
-        lastUpdated: new Date().toISOString()
-      }))
-      
-      updateDebts([...existingDebts, ...newDebts])
-      
-      alert(`
-✅ SUCCESS! 
-
-📊 ML Processing Complete
-━━━━━━━━━━━━━━━━━━━━━━
-✓ Cases Processed: ${result.cases_processed}
-✓ Stored in Supabase: ${result.cases_stored}
-✓ Model Version: ${result.model_version}
-
-🤖 AI Assignment:
-${result.predictions.map(p => `
-   ${p.customerId}: Score ${p.propensity} → ${p.assignedTo}
-`).join('')}
-      `)
-      
-      setFile(null)
-      setPreview([])
-      
-    } catch (error) {
-      console.error('❌ Upload Error:', error)
-      alert(`Upload Failed: ${error.message}`)
-    } finally {
-      setUploading(false)
+      const res = await apiClient.embedData(file, tableName);
+      setMessage(`Embedding complete! ${res.rows_inserted} rows inserted. Now starting ML processing...`);
+      await handleMLProcessing();
+    } catch (err) {
+      setError(err.message);
+      setStatus("table_created");
     }
-  }
+  };
 
-  const downloadSample = () => {
-    const csv = `customerId,amount,daysOverdue,previousContacts
-CUST001,5000,30,2
-CUST002,15000,90,5
-CUST003,2000,15,1
-CUST004,25000,120,8
-CUST005,3500,45,3`
+  const handleMLProcessing = async () => {
+    setStatus("processing");
+    setError("");
+    setMessage(`Running allocation logic on table "${tableName}"...`);
     
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'sample_debt_data.csv'
-    a.click()
-  }
+    try {
+      const res = await apiClient.runAllocationLogic(tableName);
+      setStatus("done");
+      setMessage(res.message);
+    } catch (err) {
+      setError(err.message);
+      setStatus("table_created"); // Allow retrying the processing step
+    }
+  };
+  
+  const handleReset = () => {
+    setFile(null);
+    setSqlPreview("");
+    setTableName("");
+    setStatus("idle");
+    setError("");
+    setMessage("Step 1: Upload a CSV file to begin.");
+  };
 
   return (
-    <div className="uploader-container">
-      <div className="uploader-box">
-        <h2>📤 UPLOAD DEBT DATA - AI PROCESSING</h2>
-        <p>Upload CSV file for automatic ML scoring and Supabase storage</p>
-        
-        <div className="upload-actions">
-          <button onClick={downloadSample} className="btn-secondary">
-            📥 DOWNLOAD SAMPLE CSV
+    <div className="uploader-workflow">
+      <h2>Data Ingestion & Processing Workflow</h2>
+      <p className="workflow-status">{message}</p>
+      {error && <p className="error-message">{error}</p>}
+
+      {/* Step 1: File Upload */}
+      <div className={`workflow-step ${status !== 'idle' ? 'step-completed' : ''}`}>
+        <h3>Step 1: Upload CSV</h3>
+        <input 
+          type="file" 
+          accept=".csv"
+          onChange={onFileChange} 
+          disabled={status !== 'idle'} 
+        />
+      </div>
+
+      {/* Step 2: Schema Preview & Execution */}
+      {status.startsWith('schema_generated') || status.startsWith('table_created') || status.startsWith('embedding') || status.startsWith('processing') || status.startsWith('done') ? (
+        <div className={`workflow-step ${status !== 'schema_generated' ? 'step-completed' : ''}`}>
+          <h3>Step 2: Create Table</h3>
+          <textarea readOnly value={sqlPreview} />
+          <button onClick={handleCreateSchema} disabled={status !== 'schema_generated'}>
+            {status === 'creating_table' ? "Executing..." : "Run SQL to Create Table"}
           </button>
         </div>
+      ) : null}
 
-        <div className="file-input-wrapper">
-          <input 
-            type="file" 
-            accept=".csv"
-            onChange={handleFileChange}
-            id="csv-upload"
-            disabled={uploading}
-          />
-          <label htmlFor="csv-upload" className="file-label">
-            {file ? `📄 ${file.name}` : '📎 CHOOSE CSV FILE'}
-          </label>
+      {/* Step 3: Embed Data */}
+      {status.startsWith('table_created') || status.startsWith('embedding') || status.startsWith('processing') || status.startsWith('done') ? (
+        <div className={`workflow-step ${status !== 'table_created' ? 'step-completed' : ''}`}>
+          <h3>Step 3: Embed Data</h3>
+          <button onClick={handleEmbedding} disabled={status !== 'table_created'}>
+            {status === 'embedding' ? "Embedding..." : "Start Embedding"}
+          </button>
         </div>
+      ) : null}
 
-        {preview.length > 0 && (
-          <div className="preview-section">
-            <h3>PREVIEW (First 5 rows)</h3>
-            <div className="preview-table">
-              <table>
-                <thead>
-                  <tr>
-                    {preview[0].map((header, i) => <th key={i}>{header}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.slice(1).map((row, i) => (
-                    <tr key={i}>
-                      {row.map((cell, j) => <td key={j}>{cell}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            <button 
-              onClick={handleUpload} 
-              className="btn-primary"
-              disabled={uploading}
-            >
-              {uploading ? '🔄 PROCESSING WITH ML...' : '🚀 PROCESS WITH PYTHON ML & UPLOAD'}
-            </button>
-          </div>
-        )}
-
-        {mlResults && (
-          <div className="ml-results">
-            <h3>🤖 ML PROCESSING RESULTS</h3>
-            <div className="result-stats">
-              <div className="stat">
-                <span>Cases Processed:</span>
-                <strong>{mlResults.cases_processed}</strong>
-              </div>
-              <div className="stat">
-                <span>Stored in Supabase:</span>
-                <strong>{mlResults.cases_stored}</strong>
-              </div>
-              <div className="stat">
-                <span>Model Version:</span>
-                <strong>{mlResults.model_version}</strong>
-              </div>
-            </div>
-            
-            <h4>AI Assignment Details:</h4>
-            <div className="predictions-list">
-              {mlResults.predictions.slice(0, 5).map((pred, idx) => (
-                <div key={idx} className="prediction-item">
-                  <strong>{pred.customerId}</strong>
-                  <span>Score: {pred.propensity}/100</span>
-                  <span>Agency: {pred.assignedTo}</span>
-                  <span>Risk: {pred.riskCategory}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="upload-info">
-          <h4>📋 SYSTEM WORKFLOW:</h4>
-          <ol>
-            <li>Upload CSV file</li>
-            <li><strong>Python ML Model</strong> analyzes each case</li>
-            <li>Propensity scoring (0-100) using Gradient Boosting</li>
-            <li>Auto-assignment to optimal agency</li>
-            <li><strong>Automatic storage in Supabase database</strong></li>
-            <li>Real-time sync with frontend</li>
-          </ol>
+      {/* Step 4 & 5: Processing and Done */}
+      {status === 'processing' || status === 'done' ? (
+        <div className="workflow-step step-completed">
+          <h3>Step 4: ML Allocation</h3>
+          <p>{status === 'processing' ? 'Processing is underway...' : 'Allocation Done!'}</p>
         </div>
-      </div>
+      ) : null}
+      
+      {status === 'done' && (
+        <div className="workflow-step">
+          <h3>Workflow Complete</h3>
+          <button onClick={handleReset} className="btn-secondary">Start New Workflow</button>
+        </div>
+      )}
     </div>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 // Get token from localStorage
 const getToken = () => localStorage.getItem('fedex_token')
@@ -10,12 +10,16 @@ const setToken = (token) => localStorage.setItem('fedex_token', token)
 const removeToken = () => localStorage.removeItem('fedex_token')
 
 // Get auth headers
-const getAuthHeaders = () => {
+const getAuthHeaders = (isJson = true) => {
   const token = getToken()
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` })
+  const headers = {};
+  if (isJson) {
+    headers['Content-Type'] = 'application/json';
   }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 export const apiClient = {
@@ -32,27 +36,12 @@ export const apiClient = {
     
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(error.error || 'Login failed')
+      throw new Error(error.detail || 'Login failed')
     }
     
     const data = await response.json()
-    setToken(data.token)
+    setToken(data.access_token)
     return data
-  },
-  
-  async register(userData) {
-    const response = await fetch(`${API_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData)
-    })
-    
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Registration failed')
-    }
-    
-    return response.json()
   },
   
   async verifyToken() {
@@ -72,67 +61,73 @@ export const apiClient = {
     removeToken()
   },
   
-  async getAllUsers() {
-    const response = await fetch(`${API_URL}/auth/users`, {
-      headers: getAuthHeaders()
-    })
-    
-    if (!response.ok) throw new Error('Failed to fetch users')
-    return response.json()
-  },
-  
-  async deleteUser(userId) {
-    const response = await fetch(`${API_URL}/auth/users/${userId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    })
-    
-    if (!response.ok) throw new Error('Failed to delete user')
-    return response.json()
-  },
-  
   // ============================================
-  // DEBT MANAGEMENT METHODS
+  // "MASTER PLAN" WORKFLOW METHODS
   // ============================================
   
-  async uploadCSV(file) {
+  async generateSchema(file) {
     const formData = new FormData()
     formData.append('file', file)
     
-    const token = getToken()
-    const response = await fetch(`${API_URL}/upload-csv`, {
+    const response = await fetch(`${API_URL}/generate-schema`, {
       method: 'POST',
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` })
-      },
+      headers: getAuthHeaders(false), // Not JSON
       body: formData
     })
     
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(error.error || 'Upload failed')
+      throw new Error(error.detail || 'Schema generation failed')
     }
     
     return response.json()
   },
   
-  async getAllCases() {
-    const response = await fetch(`${API_URL}/cases`, {
-      headers: getAuthHeaders()
+  async executeSql(query) {
+    const response = await fetch(`${API_URL}/execute-sql`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ query })
     })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'SQL execution failed')
+    }
     
-    if (!response.ok) throw new Error('Failed to fetch cases')
     return response.json()
   },
-  
-  async updateCaseStatus(caseId, newStatus) {
-    const response = await fetch(`${API_URL}/cases/${caseId}/status`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ status: newStatus })
-    })
+
+  async embedData(file, tableName) {
+    const formData = new FormData();
+    formData.append('file', file);
     
-    if (!response.ok) throw new Error('Failed to update status')
-    return response.json()
+    const response = await fetch(`${API_URL}/embed-data?table_name=${tableName}`, {
+        method: 'POST',
+        headers: getAuthHeaders(false), // Not JSON
+        body: formData
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Data embedding failed');
+    }
+
+    return response.json();
+  },
+
+  async runAllocationLogic(tableName) {
+    const response = await fetch(`${API_URL}/run-allocation-logic`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ table_name: tableName })
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Allocation logic failed');
+    }
+
+    return response.json();
   }
 }

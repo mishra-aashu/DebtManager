@@ -1,5 +1,6 @@
-flask==3.0.0
-flask-cors==4.0.0
+fastapi
+uvicorn
+python-multipart
 pandas==2.2.3
 scikit-learn
 supabase==2.3.0
